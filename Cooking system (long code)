@@ -1,4 +1,5 @@
---// CookingController + UIHandler + Animation
+
+--// Connected Discord-GitHub
 --// Candy Empire — StarterPlayerScripts
 
 local Players           = game:GetService("Players")
