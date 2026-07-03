@@ -1,0 +1,69 @@
+local Config = {}
+
+Config.MAX_PLAYERS = 1
+Config.MAX_GENERATORS_PER_PLAYER = 4
+Config.GENERATION_TICK_RATE = 1
+Config.BILLBOARD_UPDATE_RATE = 0.5
+
+Config.OFFLINE_CAP_SECONDS = 7200
+Config.OFFLINE_PRESTIGE_APPLIES = true
+
+Config.CLAIM_COOLDOWN = 0.5
+Config.REMOTE_RATE_LIMIT = 10
+Config.REMOTE_RATE_WINDOW = 1
+
+Config.DEFAULT_PRESTIGE_MULTIPLIER = 1.0
+Config.PRESTIGE_MULTIPLIER_PER_LEVEL = 0.25
+
+Config.GENERATORS = {
+	[1] = {
+		Name = "Generator Alpha",
+		BaseRate = 5,
+		MaxStorage = 5000,
+		UnlockCost = 0,
+	},
+	[2] = {
+		Name = "Generator Beta",
+		BaseRate = 15,
+		MaxStorage = 15000,
+		UnlockCost = 500,
+	},
+	[3] = {
+		Name = "Generator Gamma",
+		BaseRate = 40,
+		MaxStorage = 40000,
+		UnlockCost = 2000,
+	},
+	[4] = {
+		Name = "Generator Delta",
+		BaseRate = 100,
+		MaxStorage = 100000,
+		UnlockCost = 10000,
+	},
+}
+
+Config.UPGRADE = {
+	MaxLevel = 10,
+	BaseCost = 100,
+	CostScaling = 2.0,
+	MultiplierPerLevel = 0.25,
+}
+
+Config.DEFAULT_PROFILE = {
+	Money = 0,
+	Prestige = 0,
+	PrestigeMultiplier = 1.0,
+	LastOnline = 0,
+	Generators = {
+		[1] = { Owned = true, StoredMoney = 0, UpgradeLevel = 0 },
+		[2] = { Owned = false, StoredMoney = 0, UpgradeLevel = 0 },
+		[3] = { Owned = false, StoredMoney = 0, UpgradeLevel = 0 },
+		[4] = { Owned = false, StoredMoney = 0, UpgradeLevel = 0 },
+	},
+}
+
+Config.PLAYER_FOLDERS = {
+	"Player1",
+}
+
+return Config

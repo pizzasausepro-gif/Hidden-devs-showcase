@@ -1,0 +1,68 @@
+local ProfileStoreManager = require(script.Parent:WaitForChild("ProfileStoreManager", math.huge))
+local EconomyService = require(script.Parent:WaitForChild("EconomyService", math.huge))
+local Config = require(script.Parent:WaitForChild("Config", math.huge))
+
+local OfflineIncomeService = {}
+
+local function getGeneratorRate(genData, genIndex)
+	local baseCfg = Config.GENERATORS[genIndex]
+	if not baseCfg then return 0 end
+	local upgradeMultiplier = 1 + (genData.UpgradeLevel * Config.UPGRADE.MultiplierPerLevel)
+	return baseCfg.BaseRate * upgradeMultiplier
+end
+
+function OfflineIncomeService.Calculate(player)
+	local profile = ProfileStoreManager.GetProfile(player)
+	while not profile do
+		task.wait(0.1)
+		if player.Parent == nil then return 0 end
+		profile = ProfileStoreManager.GetProfile(player)
+	end
+
+	local lastOnline = profile.Data.LastOnline
+	if not lastOnline or lastOnline == 0 then
+		profile.Data.LastOnline = os.time()
+		return 0
+	end
+
+	local now = os.time()
+	local elapsed = now - lastOnline
+	local capped = math.min(elapsed, Config.OFFLINE_CAP_SECONDS)
+
+	if capped <= 0 then
+		profile.Data.LastOnline = now
+		return 0
+	end
+
+	local prestige = 1.0
+	if Config.OFFLINE_PRESTIGE_APPLIES then
+		prestige = profile.Data.PrestigeMultiplier or 1.0
+	end
+
+	local totalOffline = 0
+	for genIndex = 1, Config.MAX_GENERATORS_PER_PLAYER do
+		local genData = profile.Data.Generators[genIndex]
+		local baseCfg = Config.GENERATORS[genIndex]
+		if not genData or not baseCfg then continue end
+		if not genData.Owned then continue end
+
+		local rate = getGeneratorRate(genData, genIndex) * prestige
+		local earned = rate * capped
+		local available = baseCfg.MaxStorage - genData.StoredMoney
+		local credited = math.min(earned, available)
+		genData.StoredMoney = genData.StoredMoney + credited
+		totalOffline = totalOffline + credited
+	end
+
+	profile.Data.LastOnline = now
+
+	return math.floor(totalOffline)
+end
+
+function OfflineIncomeService.SetLastOnline(player)
+	local profile = ProfileStoreManager.GetProfile(player)
+	if not profile then return end
+	profile.Data.LastOnline = os.time()
+end
+
+return OfflineIncomeService

@@ -1,0 +1,105 @@
+local Players = game:GetService("Players")
+
+local ProfileStoreManager = require(script.Parent:WaitForChild("ProfileStoreManager", math.huge))
+local Config = require(script.Parent:WaitForChild("Config", math.huge))
+
+local EconomyService = {}
+
+local function getProfile(player)
+	local profile = ProfileStoreManager.GetProfile(player)
+	while not profile do
+		task.wait(0.1)
+		if player.Parent == nil then return nil end
+		profile = ProfileStoreManager.GetProfile(player)
+	end
+	return profile
+end
+
+function EconomyService.InitLeaderstats(player)
+	local profile = getProfile(player)
+	if not profile then return end
+
+	local leaderstats = Instance.new("Folder")
+	leaderstats.Name = "leaderstats"
+	leaderstats.Parent = player
+
+	local moneyVal = Instance.new("NumberValue")
+	moneyVal.Name = "Money"
+	moneyVal.Value = profile.Data.Money
+	moneyVal.Parent = leaderstats
+
+	local prestigeVal = Instance.new("NumberValue")
+	prestigeVal.Name = "Prestige"
+	prestigeVal.Value = profile.Data.Prestige
+	prestigeVal.Parent = leaderstats
+end
+
+function EconomyService.GetMoney(player)
+	local profile = getProfile(player)
+	if not profile then return 0 end
+	return profile.Data.Money
+end
+
+function EconomyService.AddMoney(player, amount)
+	if type(amount) ~= "number" or amount <= 0 or amount ~= amount then return end
+	local profile = getProfile(player)
+	if not profile then return end
+
+	profile.Data.Money = profile.Data.Money + amount
+
+	local ls = player:FindFirstChild("leaderstats")
+	if ls then
+		local mv = ls:FindFirstChild("Money")
+		if mv then mv.Value = profile.Data.Money end
+	end
+end
+
+function EconomyService.DeductMoney(player, amount)
+	if type(amount) ~= "number" or amount <= 0 or amount ~= amount then return false end
+	local profile = getProfile(player)
+	if not profile then return false end
+
+	if profile.Data.Money < amount then return false end
+	profile.Data.Money = profile.Data.Money - amount
+
+	local ls = player:FindFirstChild("leaderstats")
+	if ls then
+		local mv = ls:FindFirstChild("Money")
+		if mv then mv.Value = profile.Data.Money end
+	end
+
+	return true
+end
+
+function EconomyService.GetPrestige(player)
+	local profile = getProfile(player)
+	if not profile then return 0 end
+	return profile.Data.Prestige
+end
+
+function EconomyService.GetPrestigeMultiplier(player)
+	local profile = getProfile(player)
+	if not profile then return 1 end
+	return profile.Data.PrestigeMultiplier
+end
+
+function EconomyService.DoPrestige(player)
+	local profile = getProfile(player)
+	if not profile then return false end
+
+	profile.Data.Prestige = profile.Data.Prestige + 1
+	profile.Data.PrestigeMultiplier = Config.DEFAULT_PRESTIGE_MULTIPLIER + (profile.Data.Prestige * Config.PRESTIGE_MULTIPLIER_PER_LEVEL)
+	profile.Data.Money = 0
+
+	local ls = player:FindFirstChild("leaderstats")
+	if ls then
+		local mv = ls:FindFirstChild("Money")
+		if mv then mv.Value = 0 end
+		local pv = ls:FindFirstChild("Prestige")
+		if pv then pv.Value = profile.Data.Prestige end
+	end
+
+	return true
+end
+
+return EconomyService

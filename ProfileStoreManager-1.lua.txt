@@ -1,0 +1,150 @@
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+
+local ProfileStore = nil
+while not ProfileStore do
+	local ok, result = pcall(function()
+		return require(game:GetService("ServerScriptService"):WaitForChild("ProfileStore", math.huge))
+	end)
+	if ok and result then
+		ProfileStore = result
+	else
+		task.wait(1)
+	end
+end
+
+local Config = require(script.Parent:WaitForChild("Config", math.huge))
+
+local PROFILE_STORE_NAME = "PlayerData_v1"
+local MAX_RETRIES = 5
+local RETRY_DELAY = 3
+
+local PlayerStore = nil
+while not PlayerStore do
+	local ok, result = pcall(function()
+		return ProfileStore.New(PROFILE_STORE_NAME, Config.DEFAULT_PROFILE)
+	end)
+	if ok and result then
+		PlayerStore = result
+	else
+		warn("[ProfileStoreManager] Failed to create PlayerStore, retrying in " .. RETRY_DELAY .. "s")
+		task.wait(RETRY_DELAY)
+	end
+end
+
+local Profiles = {}
+local ProfileStoreManager = {}
+
+local function deepCopy(original)
+	local copy = {}
+	for k, v in pairs(original) do
+		if type(v) == "table" then
+			copy[k] = deepCopy(v)
+		else
+			copy[k] = v
+		end
+	end
+	return copy
+end
+
+local function reconcileProfile(data, template)
+	for k, v in pairs(template) do
+		if data[k] == nil then
+			if type(v) == "table" then
+				data[k] = deepCopy(v)
+			else
+				data[k] = v
+			end
+		elseif type(v) == "table" and type(data[k]) == "table" then
+			reconcileProfile(data[k], v)
+		end
+	end
+	if type(data.Generators) == "table" then
+		for i = 1, Config.MAX_GENERATORS_PER_PLAYER do
+			if data.Generators[i] == nil then
+				data.Generators[i] = deepCopy(Config.DEFAULT_PROFILE.Generators[i] or { Owned = false, StoredMoney = 0, UpgradeLevel = 0 })
+			end
+		end
+	end
+end
+
+function ProfileStoreManager.LoadProfile(player)
+	local userId = tostring(player.UserId)
+	local profile = nil
+	local attempts = 0
+
+	while attempts < MAX_RETRIES do
+		attempts = attempts + 1
+		local ok, result = pcall(function()
+			return PlayerStore:StartSessionAsync(userId, {
+				Cancel = function()
+					return player.Parent == nil
+				end,
+			})
+		end)
+
+		if ok and result then
+			profile = result
+			break
+		else
+			warn("[ProfileStoreManager] Attempt " .. attempts .. " failed for " .. player.Name .. ": " .. tostring(result))
+			if player.Parent == nil then
+				return nil
+			end
+			task.wait(RETRY_DELAY)
+		end
+	end
+
+	if not profile then
+		warn("[ProfileStoreManager] All retries exhausted for " .. player.Name .. ", kicking.")
+		player:Kick("Failed to load your data. Please rejoin.")
+		return nil
+	end
+
+	profile:AddUserId(player.UserId)
+	reconcileProfile(profile.Data, Config.DEFAULT_PROFILE)
+
+	profile.OnSessionEnd:Connect(function()
+		Profiles[player.UserId] = nil
+		player:Kick("Your session ended. Please rejoin.")
+	end)
+
+	if player.Parent == nil then
+		profile:EndSession()
+		return nil
+	end
+
+	Profiles[player.UserId] = profile
+	return profile
+end
+
+function ProfileStoreManager.GetProfile(player)
+	local profile = Profiles[player.UserId]
+	if not profile then
+		return nil
+	end
+	return profile
+end
+
+function ProfileStoreManager.ReleaseProfile(player)
+	local profile = Profiles[player.UserId]
+	if profile then
+		profile:EndSession()
+		Profiles[player.UserId] = nil
+	end
+end
+
+function ProfileStoreManager.SaveProfile(player)
+	local profile = Profiles[player.UserId]
+	if profile then
+		profile:Save()
+	end
+end
+
+game:BindToClose(function()
+	for userId, profile in pairs(Profiles) do
+		profile:EndSession()
+	end
+end)
+
+return ProfileStoreManager
