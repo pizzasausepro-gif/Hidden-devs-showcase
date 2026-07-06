@@ -1,64 +1,58 @@
--- WeatherBuyUI Controller
--- StarterPlayerScripts
-
-local Players           = game:GetService("Players")
+local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local TweenService      = game:GetService("TweenService")
-local RunService        = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
 
-local player    = Players.LocalPlayer
+local player = Players.LocalPlayer
 local PlayerGui = player:WaitForChild("PlayerGui")
 
-local WeatherModule      = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("WeatherModule"))
-local MutationModule     = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("MutationModule"))
+local WeatherModule = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("WeatherModule"))
+local MutationModule = require(ReplicatedStorage:WaitForChild("Modules"):WaitForChild("MutationModule"))
 
-local Remotes            = ReplicatedStorage:WaitForChild("Remotes")
+local Remotes = ReplicatedStorage:WaitForChild("Remotes")
 local SummonWeatherEvent = Remotes:WaitForChild("SummonWeatherEvent")
 
-local iconGui   = PlayerGui:WaitForChild("IconGui")
+local iconGui = PlayerGui:WaitForChild("IconGui")
 local mutButton = iconGui:WaitForChild("MUT")
 
-local sg        = PlayerGui:WaitForChild("WeatherBuyUI")
-sg.Enabled      = false
+local sg = PlayerGui:WaitForChild("WeatherBuyUI")
+sg.Enabled = false
 
-local mainFrame  = sg:WaitForChild("MainFrame")
-local leftPanel  = mainFrame:WaitForChild("LeftPanel")
+local mainFrame = sg:WaitForChild("MainFrame")
+local leftPanel = mainFrame:WaitForChild("LeftPanel")
 local rightPanel = mainFrame:WaitForChild("RightPanel")
-local grid       = rightPanel:WaitForChild("Grid")
+local grid = rightPanel:WaitForChild("Grid")
 
--- Left panel refs — matching your hierarchy
-local detailEmoji = leftPanel:WaitForChild("DetailName")   -- shows big emoji
-local detailMut   = leftPanel:WaitForChild("Mutation")     -- mutation name
-local detailMulti = leftPanel:WaitForChild("Multi")        -- multiplier
-local buyButton   = leftPanel:WaitForChild("RemoveButton") -- renamed to RBX visually
+local cardTemplate = grid:WaitForChild("CardTemplate")
+cardTemplate.Visible = false
 
--- Make sure labels are scaled
+local detailEmoji = leftPanel:WaitForChild("DetailName")
+local detailMut = leftPanel:WaitForChild("Mutation")
+local detailMulti = leftPanel:WaitForChild("Multi")
+local buyButton = leftPanel:WaitForChild("RemoveButton")
+
 for _, lbl in ipairs({detailEmoji, detailMut, detailMulti}) do
-	lbl.TextScaled  = true
-	lbl.RichText    = false
+	lbl.TextScaled = true
+	lbl.RichText = false
 	lbl.TextWrapped = false
 end
 
 buyButton.TextScaled = true
 
--- Grid layout
 local gridLayout = grid:FindFirstChildOfClass("UIGridLayout")
-if not gridLayout then
-	gridLayout = Instance.new("UIGridLayout", grid)
+if gridLayout then
+	gridLayout.CellSize = UDim2.new(0.44, 0, 0.24, 0)
+	gridLayout.CellPadding = UDim2.new(0.05, 0, 0.05, 0)
+	gridLayout.SortOrder = Enum.SortOrder.LayoutOrder
+	gridLayout.FillDirection = Enum.FillDirection.Horizontal
 end
-gridLayout.CellSize      = UDim2.new(0.44, 0, 0.24, 0)
-gridLayout.CellPadding   = UDim2.new(0.05, 0, 0.05, 0)
-gridLayout.SortOrder     = Enum.SortOrder.LayoutOrder
-gridLayout.FillDirection = Enum.FillDirection.Horizontal
 
--- Colors
-local CARD_COLOR    = Color3.fromRGB(60, 35, 15)
-local CARD_SELECT   = Color3.fromRGB(100, 65, 20)
-local CARD_STROKE   = Color3.fromRGB(200, 160, 80)
+local CARD_COLOR = Color3.fromRGB(60, 35, 15)
+local CARD_SELECT = Color3.fromRGB(100, 65, 20)
+local CARD_STROKE = Color3.fromRGB(200, 160, 80)
 local SELECT_STROKE = Color3.fromRGB(255, 220, 50)
 
 local selectedEvent = nil
-local selectedCard  = nil
+local selectedCard = nil
 
 local function getMutationMulti(mutName)
 	local m = MutationModule.GetEnvironmental(mutName)
@@ -70,7 +64,7 @@ local function showDetail(event)
 	selectedEvent = event
 
 	detailEmoji.Text = event.Emoji
-	detailEmoji.TextColor3 = Color3.new(1,1,1)
+	detailEmoji.TextColor3 = Color3.new(1, 1, 1)
 
 	detailMut.Text = event.Mutation .. " Mutation"
 	detailMut.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -85,113 +79,108 @@ local function showDetail(event)
 end
 
 local function makeCard(event, index)
-	local card = Instance.new("Frame")
-	card.Name             = event.Name
-	card.Size             = UDim2.new(1, 0, 1, 0)
+	local card = cardTemplate:Clone()
+	card.Name = event.Name
+	card.LayoutOrder = index
+	card.Visible = true
 	card.BackgroundColor3 = CARD_COLOR
-	card.BorderSizePixel  = 0
-	card.LayoutOrder      = index
-	card.ClipsDescendants = false
-	card.Parent           = grid
-	Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
+	card.Parent = grid
 
-	local stroke = Instance.new("UIStroke", card)
-	stroke.Color     = CARD_STROKE
-	stroke.Thickness = 2
+	local stroke = card:FindFirstChildOfClass("UIStroke")
+	if stroke then
+		stroke.Color = CARD_STROKE
+		stroke.Thickness = 2
+	end
 
-	-- Emoji display (big, centered, top portion)
-	local emojiLabel = Instance.new("TextLabel", card)
-	emojiLabel.Size                   = UDim2.new(1, 0, 0.65, 0)
-	emojiLabel.Position               = UDim2.new(0, 0, 0, 0)
-	emojiLabel.BackgroundTransparency = 1
-	emojiLabel.Text                   = event.Emoji
-	emojiLabel.TextScaled             = true
-	emojiLabel.Font                   = Enum.Font.Gotham
-	emojiLabel.TextColor3             = Color3.new(1,1,1)
-	emojiLabel.ZIndex                 = 2
+	local emojiLabel = card:FindFirstChild("EmojiLabel")
+	if emojiLabel then
+		emojiLabel.Text = event.Emoji
+		emojiLabel.TextScaled = true
+		emojiLabel.TextColor3 = Color3.new(1, 1, 1)
+	end
 
-	-- Name label bottom strip
-	local nameLabel = Instance.new("TextLabel", card)
-	nameLabel.Size                   = UDim2.new(1, -4, 0.32, 0)
-	nameLabel.Position               = UDim2.new(0, 2, 0.67, 0)
-	nameLabel.BackgroundTransparency = 1
-	nameLabel.Text                   = event.Name
-	nameLabel.TextScaled             = true
-	nameLabel.Font                   = Enum.Font.GothamBold
-	nameLabel.TextColor3             = Color3.fromRGB(220, 185, 100)
-	nameLabel.TextTruncate           = Enum.TextTruncate.AtEnd
-	nameLabel.ZIndex                 = 2
+	local nameLabel = card:FindFirstChild("NameLabel")
+	if nameLabel then
+		nameLabel.Text = event.Name
+		nameLabel.TextScaled = true
+		nameLabel.TextColor3 = Color3.fromRGB(220, 185, 100)
+		nameLabel.TextTruncate = Enum.TextTruncate.AtEnd
+	end
 
-	-- Invisible click button
-	local btn = Instance.new("TextButton", card)
-	btn.Size                   = UDim2.new(1, 0, 1, 0)
-	btn.BackgroundTransparency = 1
-	btn.Text                   = ""
-	btn.ZIndex                 = 5
+	local btn = card:FindFirstChildWhichIsA("TextButton")
+	if btn then
+		btn.MouseEnter:Connect(function()
+			if selectedCard ~= card then
+				TweenService:Create(card, TweenInfo.new(0.1), {
+					BackgroundColor3 = Color3.fromRGB(80, 50, 18)
+				}):Play()
+			end
+		end)
 
-	btn.MouseEnter:Connect(function()
-		if selectedCard ~= card then
-			TweenService:Create(card, TweenInfo.new(0.1), {
-				BackgroundColor3 = Color3.fromRGB(80, 50, 18)
-			}):Play()
-		end
-	end)
-	btn.MouseLeave:Connect(function()
-		if selectedCard ~= card then
-			TweenService:Create(card, TweenInfo.new(0.1), {
-				BackgroundColor3 = CARD_COLOR
-			}):Play()
-		end
-	end)
+		btn.MouseLeave:Connect(function()
+			if selectedCard ~= card then
+				TweenService:Create(card, TweenInfo.new(0.1), {
+					BackgroundColor3 = CARD_COLOR
+				}):Play()
+			end
+		end)
 
-	btn.MouseButton1Click:Connect(function()
-		-- Deselect old
-		if selectedCard and selectedCard ~= card then
-			selectedCard.BackgroundColor3 = CARD_COLOR
-			local os = selectedCard:FindFirstChildOfClass("UIStroke")
-			if os then os.Color = CARD_STROKE; os.Thickness = 2 end
-		end
-		-- Select new
-		selectedCard              = card
-		card.BackgroundColor3     = CARD_SELECT
-		stroke.Color              = SELECT_STROKE
-		stroke.Thickness          = 3
+		btn.MouseButton1Click:Connect(function()
+			if selectedCard and selectedCard ~= card then
+				selectedCard.BackgroundColor3 = CARD_COLOR
+				local oldStroke = selectedCard:FindFirstChildOfClass("UIStroke")
+				if oldStroke then
+					oldStroke.Color = CARD_STROKE
+					oldStroke.Thickness = 2
+				end
+			end
 
-		showDetail(event)
-	end)
+			selectedCard = card
+			card.BackgroundColor3 = CARD_SELECT
+			if stroke then
+				stroke.Color = SELECT_STROKE
+				stroke.Thickness = 3
+			end
+
+			showDetail(event)
+		end)
+	end
 
 	return card
 end
 
 local function buildGrid()
 	for _, c in ipairs(grid:GetChildren()) do
-		if c:IsA("Frame") then c:Destroy() end
+		if c:IsA("Frame") and c ~= cardTemplate then
+			c:Destroy()
+		end
 	end
 
 	local firstCard = nil
 	for i, event in ipairs(WeatherModule.Events) do
 		local card = makeCard(event, i)
-		if not firstCard then firstCard = { card = card, event = event } end
+		if not firstCard then
+			firstCard = { card = card, event = event }
+		end
 	end
 
-	-- Auto-select first
 	if firstCard then
 		selectedCard = firstCard.card
 		firstCard.card.BackgroundColor3 = CARD_SELECT
 		local st = firstCard.card:FindFirstChildOfClass("UIStroke")
-		if st then st.Color = SELECT_STROKE; st.Thickness = 3 end
+		if st then
+			st.Color = SELECT_STROKE
+			st.Thickness = 3
+		end
 		showDetail(firstCard.event)
 	end
 end
 
--- Buy button
 buyButton.MouseButton1Click:Connect(function()
 	if not selectedEvent then return end
-	print("[WeatherBuyUI] Requesting summon:", selectedEvent.Name)
 	SummonWeatherEvent:FireServer(selectedEvent.Name)
 end)
 
--- Close button
 local closeBtn = mainFrame:FindFirstChild("Close")
 if closeBtn then
 	closeBtn.MouseButton1Click:Connect(function()
@@ -199,7 +188,6 @@ if closeBtn then
 	end)
 end
 
--- MUT button toggle
 local mutOriginalSize = mutButton.Size
 mutButton.MouseButton1Click:Connect(function()
 	sg.Enabled = not sg.Enabled
@@ -208,8 +196,8 @@ mutButton.MouseButton1Click:Connect(function()
 	end
 end)
 
--- Hover anim on MUT button (same style as other icon buttons)
 local TI_FAST = TweenInfo.new(0.15, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+
 mutButton.MouseEnter:Connect(function()
 	TweenService:Create(mutButton, TI_FAST, {
 		Size = UDim2.new(
@@ -218,9 +206,11 @@ mutButton.MouseEnter:Connect(function()
 		)
 	}):Play()
 end)
+
 mutButton.MouseLeave:Connect(function()
 	TweenService:Create(mutButton, TI_FAST, { Size = mutOriginalSize }):Play()
 end)
+
 mutButton.MouseButton1Down:Connect(function()
 	TweenService:Create(mutButton, TweenInfo.new(0.08, Enum.EasingStyle.Quint), {
 		Size = UDim2.new(
@@ -229,8 +219,7 @@ mutButton.MouseButton1Down:Connect(function()
 		)
 	}):Play()
 end)
+
 mutButton.MouseButton1Up:Connect(function()
 	TweenService:Create(mutButton, TI_FAST, { Size = mutOriginalSize }):Play()
 end)
-
-print("[WeatherBuyUI] Loaded!")
